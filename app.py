@@ -370,7 +370,13 @@ def chat():
     if not user_msg:
         return jsonify({"error": "Empty message"}), 400
 
-    client   = groq.Groq(api_key=os.environ.get("GROQ_API_KEY", "your_groq_api_key_here"))
+    api_key_val = os.environ.get("GROQ_API_KEY", "your_groq_api_key_here")
+    config_path = os.path.join(BASE_DIR, "config.json")
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            api_key_val = json.load(f).get("GROQ_API_KEY", api_key_val)
+
+    client   = groq.Groq(api_key=api_key_val)
     messages = [{"role": h["role"], "content": h["content"]} for h in history[-8:]]
     messages.append({"role": "user", "content": user_msg})
 
