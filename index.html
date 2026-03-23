@@ -1188,7 +1188,7 @@ async function sendMessage() {
 
   } catch(e) {
     removeLoading();
-    addMsg('assistant', `⚠ Could not reach backend. Make sure Flask is running on port 5001.<br><small style="color:var(--text-muted)">${e.message}</small>`, {});
+    addMsg('assistant', `⚠ Could not reach backend. Make sure Flask is running on port 5005.<br><small style="color:var(--text-muted)">${e.message}</small>`, {});
   }
 
   document.getElementById('send-btn').disabled = false;
