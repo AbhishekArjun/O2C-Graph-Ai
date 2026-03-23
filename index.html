@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O2C Graph Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080c14;
+  --surface: #0e1420;
+  --surface2: #141c2e;
+  --surface3: #1a2540;
+  --border: #1e2d45;
+  --border2: #243350;
+  --accent: #38bdf8;
+  --accent-dim: rgba(56,189,248,0.15);
+  --green: #34d399;
+  --orange: #fb923c;
+  --purple: #a78bfa;
+  --yellow: #fbbf24;
+  --pink: #f472b6;
+  --red: #f87171;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-muted: #334155;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Plus Jakarta Sans', sans-serif;
+
+  /* Node colors */
+  --c-so: #38bdf8;
+  --c-cust: #34d399;
+  --c-bd: #fb923c;
+  --c-plant: #a78bfa;
+  --c-del: #f472b6;
+  --c-je: #fbbf24;
+  --c-pay: #4ade80;
+  --c-mat: #94a3b8;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: 1fr 400px;
+  overflow: hidden;
+}
+
+/* ── HEADER ── */
+header {
+  grid-column: 1/-1;
+  background: linear-gradient(90deg, #080c14 0%, #0d1525 50%, #080c14 100%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 0;
+  position: relative;
+}
+
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 28px;
+}
+
+.logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+
+.logo-text {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.logo-text span { color: var(--accent); }
+
+.stat-pills {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.pill-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+.pill-val { color: var(--text); font-weight: 500; }
+.pill-lbl { color: var(--text-dim); }
+
+.header-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+.hdr-btn {
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--mono);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+
+.hdr-btn:hover { border-color: var(--accent); color: var(--accent); }
+.hdr-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* ── GRAPH PANEL ── */
+#graph-panel {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+#graph-svg {
+  width: 100%; height: 100%;
+  cursor: grab;
+}
+#graph-svg:active { cursor: grabbing; }
+
+/* Graph controls */
+.graph-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ctrl {
+  width: 30px; height: 30px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+
+.ctrl:hover { background: var(--surface2); color: var(--accent); border-color: var(--accent); }
+
+/* Legend */
+.graph-legend {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(14,20,32,0.92);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+}
+
+.legend-title {
+  font-family: var(--mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+
+.legend-item {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.legend-item:last-child { margin-bottom: 0; }
+
+.ldot {
+  width: 8px; height: 8px;
+  border-radius: 50%; flex-shrink: 0;
+}
+
+/* Node detail overlay */
+#node-detail {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 220px;
+  background: rgba(14,20,32,0.95);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+  display: none;
+  z-index: 20;
+}
+
+#node-detail.visible { display: block; }
+
+.nd-type {
+  font-family: var(--mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 4px;
+}
+
+.nd-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.nd-row {
+  display: flex; justify-content: space-between;
+  font-size: 10px; margin-bottom: 3px;
+}
+
+.nd-key { color: var(--text-dim); font-family: var(--mono); }
+.nd-val { color: var(--text); text-align: right; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nd-expand {
+  margin-top: 10px;
+  padding: 5px 10px;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: all 0.12s;
+}
+.nd-expand:hover { background: var(--accent-dim); }
+
+.nd-close {
+  position: absolute; top: 8px; right: 10px;
+  font-size: 16px; color: var(--text-dim);
+  cursor: pointer; line-height: 1;
+}
+.nd-close:hover { color: var(--text); }
+
+/* D3 node styles */
+.node circle {
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.node:hover circle { stroke-width: 3; filter: brightness(1.3); }
+.node.selected circle { stroke-width: 3; filter: brightness(1.5) drop-shadow(0 0 8px currentColor); }
+.node.dimmed circle { opacity: 0.2; }
+.node.dimmed text { opacity: 0.1; }
+
+.node text {
+  font-family: var(--mono);
+  font-size: 8px;
+  fill: var(--text-dim);
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.link {
+  stroke: var(--border2);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+  fill: none;
+}
+
+.link.highlighted {
+  stroke: var(--accent);
+  stroke-opacity: 0.9;
+  stroke-width: 1.5;
+}
+
+.link.dimmed { stroke-opacity: 0.08; }
+
+.edge-label {
+  font-family: var(--mono);
+  font-size: 7px;
+  fill: var(--text-muted);
+  pointer-events: none;
+}
+
+/* ── CHAT PANEL ── */
+#chat-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.chat-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ch-info {}
+.ch-title { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--accent); letter-spacing: 0.06em; }
+.ch-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  animation: livepulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes livepulse {
+  0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(52,211,153,0.4); }
+  50% { opacity:0.7; box-shadow:0 0 0 4px rgba(52,211,153,0); }
+}
+
+/* Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: msgIn 0.18s ease-out;
+}
+
+@keyframes msgIn {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.msg-role {
+  font-family: var(--mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+
+.msg.user .msg-role { color: var(--accent); }
+.msg.assistant .msg-role { color: var(--green); }
+
+.msg-bubble {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.msg.user .msg-bubble {
+  background: rgba(56,189,248,0.06);
+  border-color: rgba(56,189,248,0.2);
+}
+
+.msg.guardrail .msg-bubble {
+  background: rgba(251,146,60,0.06);
+  border-color: rgba(251,146,60,0.25);
+  color: var(--orange);
+}
+
+/* SQL block */
+.sql-wrap {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.sql-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sql-tag {
+  font-family: var(--mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.sql-copy {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+.sql-copy:hover { color: var(--accent); }
+
+.sql-code {
+  background: var(--bg);
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #94a3b8;
+  overflow-x: auto;
+  white-space: pre;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Data table */
+.data-wrap {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  max-height: 180px;
+}
+
+.data-count {
+  background: var(--bg);
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.data-count span { color: var(--green); }
+
+.data-scroll { overflow-y: auto; max-height: 140px; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+th {
+  background: var(--surface3);
+  color: var(--text-muted);
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+td {
+  color: var(--text-dim);
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(30,45,69,0.5);
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface3); color: var(--text); }
+
+/* Suggestions */
+.suggestions {
+  padding: 8px 12px 6px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sug-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  padding: 3px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all 0.12s;
+}
+
+.chip:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Input */
+.chat-input-wrap {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.input-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+#chat-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  padding: 8px 11px;
+  resize: none;
+  outline: none;
+  min-height: 37px;
+  max-height: 100px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+
+#chat-input:focus { border-color: var(--accent); }
+#chat-input::placeholder { color: var(--text-muted); }
+
+#send-btn {
+  width: 37px; height: 37px;
+  background: var(--accent);
+  border: none;
+  border-radius: 5px;
+  color: #080c14;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.12s;
+  font-weight: 700;
+}
+
+#send-btn:hover { background: #7dd3fc; }
+#send-btn:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
+
+/* Loading */
+.loading-dots {
+  display: flex; gap: 4px; align-items: center; padding: 4px 0;
+}
+
+.ldot-bounce {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: dotbounce 1.1s infinite;
+}
+.ldot-bounce:nth-child(2) { animation-delay:0.15s; }
+.ldot-bounce:nth-child(3) { animation-delay:0.3s; }
+
+@keyframes dotbounce {
+  0%,80%,100% { transform:translateY(0); opacity:0.4; }
+  40% { transform:translateY(-5px); opacity:1; }
+}
+
+/* Grid overlay for graph bg */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(30,45,69,0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,45,69,0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo-wrap">
+    <div class="logo-icon">⬡</div>
+    <div class="logo-text">O2C <span>Graph</span></div>
+  </div>
+  <div class="stat-pills" id="stat-pills">
+    <div class="pill"><div class="pill-dot" style="background:var(--c-so)"></div><span class="pill-val" id="s-so">—</span><span class="pill-lbl">Orders</span></div>
+    <div class="pill"><div class="pill-dot" style="background:var(--c-cust)"></div><span class="pill-val" id="s-cust">—</span><span class="pill-lbl">Customers</span></div>
+    <div class="pill"><div class="pill-dot" style="background:var(--c-bd)"></div><span class="pill-val" id="s-bd">—</span><span class="pill-lbl">Billing Docs</span></div>
+    <div class="pill"><div class="pill-dot" style="background:var(--c-del)"></div><span class="pill-val" id="s-del">—</span><span class="pill-lbl">Deliveries</span></div>
+    <div class="pill"><div class="pill-dot" style="background:var(--c-pay)"></div><span class="pill-val" id="s-pay">—</span><span class="pill-lbl">Payments</span></div>
+    <div class="pill"><div class="pill-dot" style="background:var(--c-je)"></div><span class="pill-val" id="s-edges">—</span><span class="pill-lbl">Graph Edges</span></div>
+    <div class="pill" style="border-color:rgba(56,189,248,0.3)"><span class="pill-val" style="color:var(--accent)">₹<span id="s-rev">—</span></span><span class="pill-lbl">Total Revenue</span></div>
+  </div>
+  <div class="header-actions">
+    <button class="hdr-btn active" id="btn-graph" onclick="switchView('graph')">Graph</button>
+    <button class="hdr-btn" id="btn-table" onclick="switchView('table')">Tables</button>
+  </div>
+</header>
+
+<!-- ── GRAPH PANEL ── -->
+<div id="graph-panel">
+  <div class="grid-overlay"></div>
+  <svg id="graph-svg"></svg>
+
+  <div class="graph-legend">
+    <div class="legend-title">Entity Types</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-so)"></div>Sales Order</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-cust)"></div>Customer</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-bd)"></div>Billing Document</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-del)"></div>Delivery</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-plant)"></div>Plant</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-je)"></div>Journal Entry</div>
+    <div class="legend-item"><div class="ldot" style="background:var(--c-pay)"></div>Payment</div>
+  </div>
+
+  <!-- Node detail panel -->
+  <div id="node-detail">
+    <span class="nd-close" onclick="closeNodeDetail()">×</span>
+    <div class="nd-type" id="nd-type"></div>
+    <div class="nd-label" id="nd-label"></div>
+    <div id="nd-fields"></div>
+    <button class="nd-expand" id="nd-expand-btn">Expand Neighbors →</button>
+  </div>
+
+  <div class="graph-controls">
+    <button class="ctrl" onclick="zoomIn()" title="Zoom In">+</button>
+    <button class="ctrl" onclick="zoomOut()" title="Zoom Out">−</button>
+    <button class="ctrl" onclick="resetZoom()" title="Fit">⤢</button>
+    <button class="ctrl" onclick="clearHighlights()" title="Clear Selection">✕</button>
+  </div>
+</div>
+
+<!-- ── TABLE VIEW (hidden initially) ── -->
+<div id="table-panel" style="display:none; overflow:auto; border-right:1px solid var(--border); padding:16px; background:var(--bg);">
+  <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:12px;">Quick Table Explorer</div>
+  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;" id="table-btns"></div>
+  <div id="table-content"></div>
+</div>
+
+<!-- ── CHAT PANEL ── -->
+<div id="chat-panel">
+  <div class="chat-header">
+    <div class="live-dot"></div>
+    <div class="ch-info">
+      <div class="ch-title">NL Query Interface</div>
+      <div class="ch-sub">Natural Language → SQL → Insight</div>
+    </div>
+  </div>
+
+  <div class="chat-messages" id="chat-messages">
+    <div class="msg assistant">
+      <div class="msg-role">System</div>
+      <div class="msg-bubble">
+        <strong>O2C Graph Intelligence</strong> is ready.<br><br>
+        Ask me anything about this SAP dataset: sales orders, billing documents, deliveries, payments, customers, plants, and products.<br><br>
+        I translate your natural language questions into SQL, execute them against the live database, and return data-backed answers.
+      </div>
+    </div>
+  </div>
+
+  <div class="suggestions">
+    <div class="sug-label">Example queries</div>
+    <div class="chips">
+      <div class="chip" onclick="useChip(this)">Products with most billing docs</div>
+      <div class="chip" onclick="useChip(this)">Trace billing doc 90504219</div>
+      <div class="chip" onclick="useChip(this)">Sales orders without payments</div>
+      <div class="chip" onclick="useChip(this)">Revenue by customer</div>
+      <div class="chip" onclick="useChip(this)">Deliveries not yet shipped</div>
+      <div class="chip" onclick="useChip(this)">Top plants by order volume</div>
+      <div class="chip" onclick="useChip(this)">Total cancelled billing amount</div>
+    </div>
+  </div>
+
+  <div class="chat-input-wrap">
+    <div class="input-row">
+      <textarea id="chat-input" placeholder="Ask about the O2C dataset…" rows="1"
+        onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+      <button id="send-btn" onclick="sendMessage()">↑</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Auto-detect: relative path works when served by Flask; fallback for local file:// dev
+const API = (window.location.protocol === 'file:')
+  ? 'http://localhost:5001/api'
+  : '/api';
+let chatHistory = [];
+let sim, zoomBeh, svgSel, gSel;
+let allNodes = [], allEdges = [];
+let selectedNode = null;
+
+const COLORS = {
+  SalesOrder:     getComputedStyle(document.documentElement).getPropertyValue('--c-so').trim(),
+  Customer:       getComputedStyle(document.documentElement).getPropertyValue('--c-cust').trim(),
+  BillingDocument:getComputedStyle(document.documentElement).getPropertyValue('--c-bd').trim(),
+  Plant:          getComputedStyle(document.documentElement).getPropertyValue('--c-plant').trim(),
+  Delivery:       getComputedStyle(document.documentElement).getPropertyValue('--c-del').trim(),
+  JournalEntry:   getComputedStyle(document.documentElement).getPropertyValue('--c-je').trim(),
+  Payment:        getComputedStyle(document.documentElement).getPropertyValue('--c-pay').trim(),
+  Material:       '#94a3b8',
+  SalesOrderItem: '#475569',
+};
+
+const RADII = {
+  Customer:14, SalesOrder:9, BillingDocument:9,
+  Plant:10, Delivery:7, JournalEntry:7,
+  Payment:7, Material:5, SalesOrderItem:4,
+};
+
+// ── STATS ──────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const d = await (await fetch(`${API}/stats`)).json();
+    document.getElementById('s-so').textContent    = d.salesOrders;
+    document.getElementById('s-cust').textContent  = d.customers;
+    document.getElementById('s-bd').textContent    = d.billingDocs;
+    document.getElementById('s-del').textContent   = d.deliveries;
+    document.getElementById('s-pay').textContent   = d.payments;
+    document.getElementById('s-edges').textContent = d.graphEdges;
+    document.getElementById('s-rev').textContent   = (d.totalRevenue/1000).toFixed(0) + 'K';
+  } catch(e) { console.warn('Stats failed:', e); }
+}
+
+// ── GRAPH ──────────────────────────────────────────────────
+async function loadGraph() {
+  const d = await (await fetch(`${API}/graph/overview`)).json();
+  allNodes = d.nodes;
+  allEdges = d.edges;
+  renderGraph(allNodes, allEdges);
+}
+
+function getColor(type) {
+  return COLORS[type] || '#64748b';
+}
+
+function renderGraph(nodes, edges) {
+  const panel = document.getElementById('graph-panel');
+  const W = panel.clientWidth, H = panel.clientHeight;
+
+  svgSel = d3.select('#graph-svg');
+  svgSel.selectAll('*').remove();
+
+  const defs = svgSel.append('defs');
+
+  // Arrowhead
+  defs.append('marker').attr('id','arrow')
+    .attr('viewBox','0 -3 7 6').attr('refX',16).attr('refY',0)
+    .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+    .append('path').attr('d','M0,-3L7,0L0,3').attr('fill','#1e2d45');
+
+  defs.append('marker').attr('id','arrow-hl')
+    .attr('viewBox','0 -3 7 6').attr('refX',16).attr('refY',0)
+    .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+    .append('path').attr('d','M0,-3L7,0L0,3').attr('fill','#38bdf8');
+
+  gSel = svgSel.append('g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.05,5])
+    .on('zoom', e => gSel.attr('transform', e.transform));
+  svgSel.call(zoomBeh);
+
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const validEdges = edges.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target));
+
+  // Links
+  const linkSel = gSel.append('g').selectAll('line')
+    .data(validEdges).join('line')
+    .attr('class','link')
+    .attr('marker-end','url(#arrow)');
+
+  // Nodes
+  const nodeSel = gSel.append('g').selectAll('g.node')
+    .data(nodes).join('g')
+    .attr('class','node')
+    .attr('data-id', d => d.id)
+    .call(d3.drag()
+      .on('start', (e,d) => { if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; })
+    );
+
+  nodeSel.append('circle')
+    .attr('r', d => RADII[d.type] || 7)
+    .attr('fill', d => getColor(d.type))
+    .attr('fill-opacity', 0.8)
+    .attr('stroke', d => getColor(d.type))
+    .attr('stroke-opacity', 0.6)
+    .on('click', (e, d) => { e.stopPropagation(); selectNode(d); })
+    .on('dblclick', (e,d) => { e.stopPropagation(); expandNode(d); });
+
+  nodeSel.append('text')
+    .attr('dy', d => (RADII[d.type] || 7) + 10)
+    .text(d => {
+      const max = d.type === 'Customer' ? 18 : 12;
+      return d.label.length > max ? d.label.slice(0, max-1)+'…' : d.label;
+    });
+
+  // Click on SVG background — deselect
+  svgSel.on('click', () => { clearSelection(); });
+
+  // Force simulation
+  sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(validEdges).id(d=>d.id).distance(d => {
+      const t = [d.source.type||'', d.target.type||''].sort().join('-');
+      if (t.includes('Customer')) return 100;
+      if (t.includes('Plant')) return 80;
+      return 65;
+    }).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(-180))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide(d => (RADII[d.type]||7) + 12))
+    .on('tick', () => {
+      linkSel
+        .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+  setTimeout(() => fitGraph(), 1200);
+}
+
+function fitGraph() {
+  const panel = document.getElementById('graph-panel');
+  svgSel.transition().duration(700).call(
+    zoomBeh.transform,
+    d3.zoomIdentity.translate(panel.clientWidth/2, panel.clientHeight/2).scale(0.7)
+      .translate(-panel.clientWidth/2, -panel.clientHeight/2)
+  );
+}
+
+// ── NODE SELECTION ─────────────────────────────────────────
+function selectNode(d) {
+  selectedNode = d;
+  gSel.selectAll('g.node').classed('selected', n => n.id === d.id);
+
+  // Find neighbors
+  const neighborIds = new Set([d.id]);
+  allEdges.forEach(e => {
+    const src = typeof e.source === 'object' ? e.source.id : e.source;
+    const tgt = typeof e.target === 'object' ? e.target.id : e.target;
+    if (src === d.id) neighborIds.add(tgt);
+    if (tgt === d.id) neighborIds.add(src);
+  });
+
+  gSel.selectAll('g.node').classed('dimmed', n => !neighborIds.has(n.id));
+  gSel.selectAll('line.link').classed('highlighted', e => {
+    const s = typeof e.source==='object'?e.source.id:e.source;
+    const t = typeof e.target==='object'?e.target.id:e.target;
+    return neighborIds.has(s) && neighborIds.has(t);
+  }).classed('dimmed', e => {
+    const s = typeof e.source==='object'?e.source.id:e.source;
+    const t = typeof e.target==='object'?e.target.id:e.target;
+    return !(neighborIds.has(s) && neighborIds.has(t));
+  }).attr('marker-end', e => {
+    const s = typeof e.source==='object'?e.source.id:e.source;
+    const t = typeof e.target==='object'?e.target.id:e.target;
+    return (neighborIds.has(s) && neighborIds.has(t)) ? 'url(#arrow-hl)' : 'url(#arrow)';
+  });
+
+  showNodeDetail(d);
+}
+
+function clearSelection() {
+  selectedNode = null;
+  gSel?.selectAll('g.node').classed('selected dimmed', false);
+  gSel?.selectAll('line.link').classed('highlighted dimmed', false)
+       .attr('marker-end', 'url(#arrow)');
+  closeNodeDetail();
+}
+
+function showNodeDetail(d) {
+  const panel = document.getElementById('node-detail');
+  const color = getColor(d.type);
+  document.getElementById('nd-type').textContent = d.type;
+  document.getElementById('nd-type').style.color = color;
+  document.getElementById('nd-label').textContent = d.label;
+
+  const displayFields = {
+    SalesOrder: ['salesOrder','soldToParty','totalNetAmount','overallDeliveryStatus','creationDate'],
+    Customer: ['businessPartner','businessPartnerName','businessPartnerIsBlocked'],
+    BillingDocument: ['billingDocument','totalNetAmount','billingDocumentIsCancelled','soldToParty','creationDate'],
+    Plant: ['plant','plantName','salesOrganization'],
+    Delivery: ['deliveryDocument','creationDate','shippingPoint','overallGoodsMovementStatus'],
+    JournalEntry: ['accountingDocument','amountInTransactionCurrency','postingDate','customer'],
+    Payment: ['clearingAccountingDocument','amountInTransactionCurrency','clearingDate'],
+  };
+
+  const fields = displayFields[d.type] || Object.keys(d.data || {}).slice(0,5);
+  const data = d.data || {};
+  let html = '';
+  fields.forEach(f => {
+    if (data[f] !== undefined && data[f] !== null && data[f] !== '') {
+      let val = data[f];
+      if (f.includes('Amount') && typeof val === 'number') val = '₹' + val.toLocaleString();
+      if (f.includes('Date') && typeof val === 'string') val = val.slice(0,10);
+      if (f.includes('Blocked') || f.includes('Cancelled')) val = val ? 'Yes ⚠' : 'No';
+      html += `<div class="nd-row"><span class="nd-key">${f}</span><span class="nd-val" title="${data[f]}">${val}</span></div>`;
+    }
+  });
+  document.getElementById('nd-fields').innerHTML = html;
+
+  const expandBtn = document.getElementById('nd-expand-btn');
+  expandBtn.onclick = () => expandNode(d);
+
+  panel.classList.add('visible');
+}
+
+function closeNodeDetail() {
+  document.getElementById('node-detail').classList.remove('visible');
+}
+
+async function expandNode(d) {
+  const [type, ...rest] = d.id.split('_');
+  const rawId = rest.join('_');
+  const typeMap = { SO:'SalesOrder', CUST:'Customer', BD:'BillingDocument',
+                    PLANT:'Plant', DEL:'Delivery', JE:'JournalEntry', PAY:'Payment' };
+  const nodeType = typeMap[type] || type;
+
+  try {
+    const resp = await fetch(`${API}/graph/expand/${nodeType}/${rawId}`);
+    const { nodes: newNodes, edges: newEdges } = await resp.json();
+
+    // Merge
+    const existingIds = new Set(allNodes.map(n=>n.id));
+    newNodes.forEach(n => { if (!existingIds.has(n.id)) allNodes.push(n); });
+    const existingEdgeKeys = new Set(allEdges.map(e => `${e.source}|${e.target}`));
+    newEdges.forEach(e => {
+      const k = `${e.source}|${e.target}`;
+      if (!existingEdgeKeys.has(k)) allEdges.push(e);
+    });
+
+    renderGraph(allNodes, allEdges);
+    // Re-select after re-render
+    setTimeout(() => {
+      const node = allNodes.find(n => n.id === d.id);
+      if (node) selectNode(node);
+    }, 200);
+  } catch(e) { console.error('Expand failed:', e); }
+}
+
+// ── ZOOM ───────────────────────────────────────────────────
+function zoomIn()  { svgSel.transition().call(zoomBeh.scaleBy, 1.4); }
+function zoomOut() { svgSel.transition().call(zoomBeh.scaleBy, 0.7); }
+function resetZoom() { fitGraph(); }
+function clearHighlights() { clearSelection(); }
+
+// ── HIGHLIGHT FROM CHAT ─────────────────────────────────────
+function highlightFromChat(nodeIds) {
+  if (!gSel || !nodeIds || nodeIds.length === 0) return;
+  const idSet = new Set(nodeIds);
+  gSel.selectAll('g.node').classed('selected', d => idSet.has(d.id))
+                           .classed('dimmed', d => nodeIds.length > 0 && !idSet.has(d.id));
+  gSel.selectAll('line.link')
+    .classed('highlighted', e => {
+      const s = typeof e.source==='object'?e.source.id:e.source;
+      const t = typeof e.target==='object'?e.target.id:e.target;
+      return idSet.has(s) || idSet.has(t);
+    });
+}
+
+// ── VIEW SWITCHER ────────────────────────────────────────────
+function switchView(v) {
+  const gp = document.getElementById('graph-panel');
+  const tp = document.getElementById('table-panel');
+  document.getElementById('btn-graph').classList.toggle('active', v==='graph');
+  document.getElementById('btn-table').classList.toggle('active', v==='table');
+  gp.style.display = v === 'graph' ? '' : 'none';
+  tp.style.display  = v === 'table' ? '' : 'none';
+  if (v === 'table') initTableView();
+}
+
+const TABLE_LIST = [
+  { key:'sales_order_headers',      label:'Sales Orders' },
+  { key:'business_partners',        label:'Customers' },
+  { key:'billing_documents',        label:'Billing Docs' },
+  { key:'outbound_delivery_headers',label:'Deliveries' },
+  { key:'journal_entry_items',      label:'Journal Entries' },
+  { key:'payments',                 label:'Payments' },
+  { key:'plants',                   label:'Plants' },
+  { key:'product_descriptions',     label:'Products' },
+];
+
+let tableViewInit = false;
+function initTableView() {
+  if (tableViewInit) return;
+  tableViewInit = true;
+  const btns = document.getElementById('table-btns');
+  TABLE_LIST.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'hdr-btn' + (i===0?' active':'');
+    b.textContent = t.label;
+    b.onclick = () => {
+      document.querySelectorAll('#table-btns .hdr-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      loadTable(t.key);
+    };
+    btns.appendChild(b);
+  });
+  loadTable(TABLE_LIST[0].key);
+}
+
+async function loadTable(tableName) {
+  const content = document.getElementById('table-content');
+  content.innerHTML = '<div style="color:var(--text-dim);font-family:var(--mono);font-size:11px">Loading…</div>';
+  try {
+    const resp = await fetch(`${API}/query`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ sql: `SELECT * FROM ${tableName} LIMIT 30` })
+    });
+    const { rows } = await resp.json();
+    if (!rows || rows.length === 0) { content.innerHTML='<div style="color:var(--text-muted)">No data</div>'; return; }
+    const keys = Object.keys(rows[0]);
+    content.innerHTML = `
+      <div style="color:var(--text-muted);font-family:var(--mono);font-size:9px;margin-bottom:8px">
+        ${rows.length} rows shown (max 30) — ${tableName}
+      </div>
+      <div style="overflow:auto;max-height:calc(100vh - 160px);border:1px solid var(--border);border-radius:6px">
+        <table>
+          <thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(r=>`<tr>${keys.map(k=>`<td title="${r[k]??''}">${r[k]??''}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch(e) { content.innerHTML=`<div style="color:var(--red)">Error: ${e.message}</div>`; }
+}
+
+// ── CHAT ───────────────────────────────────────────────────
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function useChip(chip) {
+  document.getElementById('chat-input').value = chip.textContent;
+  sendMessage();
+}
+
+function addMsg(role, html, extra) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role} ${extra?.guardrail?'guardrail':''}`;
+  div.innerHTML = `<div class="msg-role">${role==='user'?'You':'Assistant'}</div>
+    <div class="msg-bubble">${html}${buildSqlBlock(extra?.sql)}${buildTable(extra?.data, extra?.rowCount)}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function buildSqlBlock(sql) {
+  if (!sql) return '';
+  const escaped = sql.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<div class="sql-wrap">
+    <div class="sql-header">
+      <span class="sql-tag">SQL Query</span>
+      <button class="sql-copy" onclick="navigator.clipboard.writeText(\`${sql.replace(/`/g,'\\`')}\`)">copy</button>
+    </div>
+    <div class="sql-code">${escaped}</div>
+  </div>`;
+}
+
+function buildTable(data, rowCount) {
+  if (!data || data.length === 0) return '';
+  const keys = Object.keys(data[0]);
+  const shown = data.slice(0,15);
+  return `<div class="data-wrap">
+    <div class="data-count">Results <span>${rowCount||data.length} rows</span> · showing ${shown.length}</div>
+    <div class="data-scroll">
+      <table>
+        <thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead>
+        <tbody>${shown.map(r=>`<tr>${keys.map(k=>`<td title="${r[k]??''}">${r[k]??''}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function showLoading() {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.id = 'loading-msg';
+  div.className = 'msg assistant';
+  div.innerHTML = `<div class="msg-role">Assistant</div>
+    <div class="msg-bubble"><div class="loading-dots">
+      <div class="ldot-bounce"></div><div class="ldot-bounce"></div><div class="ldot-bounce"></div>
+    </div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeLoading() {
+  document.getElementById('loading-msg')?.remove();
+}
+
+async function sendMessage() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+
+  document.getElementById('send-btn').disabled = true;
+  inp.value = ''; inp.style.height = 'auto';
+
+  addMsg('user', msg.replace(/</g,'&lt;'));
+  chatHistory.push({ role:'user', content:msg });
+  showLoading();
+
+  try {
+    const resp = await fetch(`${API}/chat`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message:msg, history: chatHistory.slice(-10) })
+    });
+    const d = await resp.json();
+    removeLoading();
+
+    const ansHtml = (d.answer||'No answer returned.').replace(/\n/g,'<br>').replace(/</g,'&lt;').replace(/&lt;br&gt;/g,'<br>');
+    addMsg('assistant', ansHtml, {
+      sql: d.sql,
+      data: d.data,
+      rowCount: d.row_count,
+      guardrail: d.guardrail,
+    });
+
+    chatHistory.push({ role:'assistant', content: d.answer||'' });
+
+    // Highlight graph nodes from response
+    if (d.highlighted_nodes?.length > 0) {
+      highlightFromChat(d.highlighted_nodes);
+    }
+
+  } catch(e) {
+    removeLoading();
+    addMsg('assistant', `⚠ Could not reach backend. Make sure Flask is running on port 5001.<br><small style="color:var(--text-muted)">${e.message}</small>`, {});
+  }
+
+  document.getElementById('send-btn').disabled = false;
+  inp.focus();
+}
+
+// ── INIT ───────────────────────────────────────────────────
+(async () => {
+  await loadStats();
+  await loadGraph();
+})();
+</script>
+</body>
+</html>
